@@ -86,14 +86,25 @@ jobs:
           git -C lean4.git -c push.negotiate=true push -f pr-releases pr-release-${{ steps.workflow-info.outputs.pullRequestNumber }}-"${SHORT_SHA}"
       - name: Delete existing releases if present
         if: ${{ steps.workflow-info.outputs.pullRequestNumber != '' }}
-        run: |
-          # Delete any existing releases for this PR.
-          # The short format release is always recreated with the latest commit.
-          # The SHA-suffixed release should be unique per commit, but delete just in case.
-          gh release delete --repo ${{ github.repository_owner }}/lean4-pr-releases pr-release-${{ steps.workflow-info.outputs.pullRequestNumber }} -y || true
-          gh release delete --repo ${{ github.repository_owner }}/lean4-pr-releases pr-release-${{ steps.workflow-info.outputs.pullRequestNumber }}-${{ env.SHORT_SHA }} -y || true
+        uses: actions/github-script@v9
         env:
-          GH_TOKEN: ${{ secrets.PR_RELEASES_TOKEN }}
+          PR_NUMBER: ${{ steps.workflow-info.outputs.pullRequestNumber }}
+        with:
+          github-token: ${{ secrets.PR_RELEASES_TOKEN }}
+          script: |
+            const owner = context.repo.owner;
+            const repo = 'lean4-pr-releases';
+            const tag = `pr-release-${process.env.PR_NUMBER}`;
+            for (const tagName of [tag, `${tag}-${process.env.SHORT_SHA}`]) {
+              let release;
+              try {
+                release = (await github.rest.repos.getReleaseByTag({owner, repo, tag: tagName})).data;
+              } catch (error) {
+                if (error.status === 404) continue;
+                throw error;
+              }
+              await github.rest.repos.deleteRelease({owner, repo, release_id: release.id});
+            }
       # We use `gh release create` instead of `softprops/action-gh-release` because
       # the latter enumerates all releases to check for existing ones, which fails
       # when the repository has more than 10000 releases (GitHub API pagination limit).
