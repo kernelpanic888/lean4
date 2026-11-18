@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Salkutsan Aleksey. All rights reserved.
+// Released under Apache 2.0 license as described in the file LICENSE.
 // Run with: node script/test-pr-release.mjs
 import assert from 'node:assert/strict';
 import { readFileSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
